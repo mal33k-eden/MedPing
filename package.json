@@ -1,0 +1,26 @@
+{
+  "name": "medping",
+  "version": "1.0.0",
+  "description": "decentralize medicine ",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "lite-server"
+  },
+  "keywords": [
+    "bsc",
+    "blockchain"
+  ],
+  "author": "Emmanuel Kwami Tartey",
+  "license": "ISC",
+  "dependencies": {
+    "@chainlink/contracts": "^0.1.9",
+    "@openzeppelin/contracts": "^4.1.0",
+    "@truffle/hdwallet-provider": "^1.4.1",
+    "lite-server": "^2.6.1",
+    "luxon": "^1.27.0"
+  }
+}

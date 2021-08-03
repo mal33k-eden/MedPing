@@ -11,16 +11,17 @@ module.exports = async function (deployer,network,accounts) {
   var wallet = accounts[4];
   var crowdsaleSupply =  "70000000000000000000000000";
   var lockedFunds     =  "110000000000000000000000000";
-  var startTime = Math.trunc(DateTime.now().toLocal().plus({minutes:10}).toSeconds());
+  var startTime = Math.trunc(DateTime.now().toLocal().plus({minutes:3}).toSeconds());
   //var endTime = Math.trunc(DateTime.now().toLocal().plus({ months: 3 ,hours:23,minutes:60,seconds:60}).toSeconds());
-  var endTime = Math.trunc(DateTime.now().toLocal().plus({ days: 5}).toSeconds());
+  var endTime = Math.trunc(DateTime.now().toLocal().plus({ minutes: 5}).toSeconds());
+  
+  var softCap = 69063; //usd from spreadsheet
+  var hardCap = 1690630; //usd from spreadsheet
+  var busdContract = '0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee';
   var DevMarketing = accounts[9];
   var TeamToken = accounts[8];
   var ListingLiquidity = accounts[7];
   var OperationsManagement = accounts[6];
-  var softCap = 69063; //usd from spreadsheet
-  var hardCap = 1690630; //usd from spreadsheet
-  var busdContract = '0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee';
 
   await token.setReleaser(accounts[0]);
   await deployer.deploy(MedPingInvestorsVault,token.address);
@@ -36,6 +37,11 @@ module.exports = async function (deployer,network,accounts) {
 
   const crowdsale = await MedPingCrowdSale.deployed();
   await crowdsale.setCaps(softCap,hardCap);
+  
+  await crowdsale.setTeamMembersLock(DevMarketing,5,5,1,20,8976);
+  await crowdsale.setTeamMembersLock(TeamToken,18,10,3,30,7654);
+  await crowdsale.setTeamMembersLock(ListingLiquidity,27,1,1,27,6609);
+  await crowdsale.setTeamMembersLock(OperationsManagement,5,5,1,20,7654);
   await token.transfer(crowdsale.address,crowdsaleSupply);
   await token.setReleaser(crowdsale.address);
 

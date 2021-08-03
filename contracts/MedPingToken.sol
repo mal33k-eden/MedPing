@@ -10,34 +10,34 @@ contract MedPingToken is ERC20,Ownable{
     uint256 tSupply = 200 * 10**6 * (10 ** uint256(decimals()));
     /** If false we are are in transfer lock up period.*/
     bool public released = false;
-    /**Only the crowdsale address can make transfer during the lock up period */
-    address public crowdsale;
-    uint256 firstListingDate;
+    address public crowdsale; //crowdsale address
+    uint256 firstListingDate; //date for first exchange listing
     struct lockAllowance{
         uint256 total; uint256 allowance; uint256 spent; uint lockStage;
     }
-    mapping(address => lockAllowance) lockAllowances;
-    mapping(address => bool) public earlyInvestors;
-    
+    mapping(address => lockAllowance) lockAllowances; //early investors allowance profile
+    mapping(address => bool) public earlyInvestors;//list of early investors
 
-    /** Limit token transfer until the lockup period is over.*/
+    /** MODIFIER: Limits token transfer until the lockup period is over.*/
     modifier canTransfer() {
         if(!released) {
             require(crowdsale == msg.sender,"you are not permitted to make transactions");
         }
         _;
     }
+    /** MODIFIER: Limits actions to only crowdsale.*/
     modifier onlyCrowdSale() {
         require(crowdsale == msg.sender,"you are not permitted to make transactions");
         _;
     }
+    /** MODIFIER: Limits and manages early investors transfer.*/
     modifier investorChecks(uint256 _value){
-        if(firstListingDate + 30 days < block.timestamp ){
+        if(firstListingDate + 30 days < block.timestamp ){ //before the 30days of the first listing date
             if(earlyInvestors[msg.sender]){
-                updateLockAllownces();
-                lockAllowance storage lock = lockAllowances[msg.sender];
-                require(lock.spent <= _value);
-                updateLockSpent(_value);
+                updateLockAllownces(); //provision allowance and update stage
+                lockAllowance storage lock = lockAllowances[msg.sender]; 
+                require(lock.spent <= _value); //validate spending amount
+                updateLockSpent(_value); //update lock spent 
             }
         }
         _;
@@ -46,7 +46,7 @@ contract MedPingToken is ERC20,Ownable{
     constructor() ERC20("Medping", "PING"){
         _mint(msg.sender, tSupply);
     }
-    /** Allow only the crowdsale address to relase the tokens into the wild */
+    /** Allows only the crowdsale address to relase the tokens into the wild */
     function releaseTokenTransfer() onlyCrowdSale() public {
             released = true;       
     }
@@ -54,8 +54,9 @@ contract MedPingToken is ERC20,Ownable{
     function setReleaser(address _crowdsale) onlyOwner() public {
         crowdsale = _crowdsale;
     }
-     /** lock early investments per business logic.*/
-    function addToLock(uint256 _total,address _investor)public onlyCrowdSale(){
+     /** lock early investments per tokenomics.*/
+    function addToLock(uint256 _total,address _investor) public onlyCrowdSale(){
+        //check if the early investor's address is not registered
         if(!earlyInvestors[_investor]){
             lockAllowance memory lock;
             lock.total = _total;
@@ -64,38 +65,35 @@ contract MedPingToken is ERC20,Ownable{
             lockAllowances[_investor] = lock;
             earlyInvestors[_investor]=true;
         }else{
-            updateLockTotal(_total);
+            updateLockTotal(_total,_investor);
         }
-        
     }
      /** update investments lock total.*/
-    function updateLockTotal(uint256 _total) internal returns(bool){
-        lockAllowance storage lock = lockAllowances[msg.sender];
+    function updateLockTotal(uint256 _total, address _investor) internal returns(bool){
+        lockAllowance storage lock = lockAllowances[_investor];
         lock.spent = lock.total + _total;
-        //emit LogVaultWithdrawal(msg.sender, amount);
         return true;
     }
      /** update lock quota.*/
     function updateLockSpent(uint256 _spent) internal returns(bool){
         lockAllowance storage lock = lockAllowances[msg.sender];
         lock.spent = lock.spent + _spent;
-        //emit LogVaultWithdrawal(msg.sender, amount);
         return true;
     }
 
-     /** update lock box.*/
+     /** update allowance box.*/
     function updateLockAllownces() internal returns (bool){
         lockAllowance storage lock = lockAllowances[msg.sender];
         if(firstListingDate + 7 days >= block.timestamp && firstListingDate + 13 days <= block.timestamp){
-            if(lock.lockStage < 1){
-                lock.allowance = (lock.total.mul(50 *100)).div(10000);
+            if(lock.lockStage < 1){//first allowance 
+                lock.allowance = (lock.total.mul(50 *100)).div(10000); //provision allowance = 50% of investments
                 lock.lockStage = 1;
             }
-            //first allowance 
+            
         }else if(firstListingDate + 14 days >= block.timestamp && firstListingDate + 29 days <= block.timestamp){
-            //second allowance
-            if(lock.lockStage == 1){
-                lock.allowance = (lock.total.mul(70 *100)).div(10000);
+            
+            if(lock.lockStage == 1){//second allowance
+                lock.allowance = (lock.total.mul(70 *100)).div(10000); //provision allowance = 70% of remaining investments
                 lock.lockStage = 2;
             }
         }

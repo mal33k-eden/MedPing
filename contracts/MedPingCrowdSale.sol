@@ -1,12 +1,12 @@
 pragma solidity 0.8;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./MedPingToken.sol"; 
-import "./MedPingInvestorsVault.sol"; 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "./MedPingToken.sol"; 
+import "./MedPingInvestorsVault.sol"; 
 
 contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     /**
@@ -14,71 +14,64 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     * @Legend: CrowdsaleOperationFinished = COF
     */
     using SafeMath for uint256;
-    address payable admin;
     MedPingToken public _tokenContract;
     MedPingInvestorsVault public _vaultContract;
     IERC20 public _BUSDContract;
+    AggregatorV3Interface internal BNBUSD;
+
     uint256 public _rate;
     uint256 public _tokensSold;
     uint256 public _weiRaised;
     uint256  _tokensReamaining; 
     address payable  _wallet;
-    uint256 _crossDecimal = 10**8; 
-
-    uint256 _startTime;
-    uint256 _endTime;
-    bool private _finalized;
-    event COF();
-    event CPE(uint256 oldEndTime, uint256 newEndTime);
-    // Crowdsale Stages
-    enum CrowdsaleStage { PreSale,PrivateSale,PublicSale,Paused,Ended }
-    // Default to presale stage
-    CrowdsaleStage public stage = CrowdsaleStage.Paused;
+    uint256 _crossDecimal = 10**8;
     // Track investor contributions
     uint256  investorMinCap;
     uint256  investorMaxCap;
     uint256  medPingHardCap;
     uint256  medPingSoftCap;
-
+    uint numParticipants;
+    uint256 _startTime;
+    uint256 _endTime;
+    bool private _finalized;
+    
+    // Crowdsale Stages
+    enum CrowdsaleStage { PreSale,PrivateSale,PublicSale,Paused,Ended }
+    // Default to presale stage
+    CrowdsaleStage public stage = CrowdsaleStage.Paused;
+    
     mapping(CrowdsaleStage=> mapping(address => uint256)) _contributions;
     mapping(CrowdsaleStage=> mapping(address => uint256)) _receiving;
     mapping(CrowdsaleStage=> uint256) public CrowdsaleStageBalance;
-
-    uint numParticipants;
-
-    AggregatorV3Interface internal BNBUSD;
-
+    mapping(address => TeamMembersLock) public TeamMembersLockandEarlyInvestorsProfile;
+    /**
+     * @dev ADDRESSES.
+     */
     address BNBUSD_Aggregator = 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526;
+    address payable admin;
+    address payable public _DevMarketing;
+    address payable public _TeamToken;
+    address payable public _ListingLiquidity;
+    address payable public _OperationsManagement;
 
-    address payable _DevMarketing;
-    address payable _TeamToken;
-    address payable _ListingLiquidity;
-    address payable _OperationsManagement;
-
-    uint256 public _DevMarketingPercentage = 5;
-    uint256 public _TeamTokenPercentage = 18;
-    uint256 public _ListingLiquidityPercentage = 27;
-    uint256 public _OperationsManagementPercentage =5;
-
-    uint256 public _DevMarketing_percentPerReleaseInterval = 5;
-    uint256 public _TeamToken_percentPerReleaseInterval = 10;
-    uint256 public _ListingLiquidity_percentPerReleaseInterval = 1;
-    uint256 public _OperationsManagement_percentPerReleaseInterval =5;
-
-    uint256 public _DevMarketing_ReleaseInterval = 1; //monthly 
-    uint256 public _TeamToken_ReleaseInterval = 3; //every 3 month
-    uint256 public _ListingLiquidity_ReleaseInterval = 1; //monthly
-    uint256 public _OperationsManagement_ReleaseInterval =1;
-
-    uint256 public _DevMarketing_TotalDur = 20; //held for 20 month space
-    uint256 public _TeamToken_TotalDur = 30;
-    uint256 public _ListingLiquidity_TotalDur = 27;
-    uint256 public _OperationsManagement_TotalDur =20;
-
-    uint256 public _DevMarketing_ID = 8976; 
-    uint256 public _TeamToken_ID = 7654;
-    uint256 public _ListingLiquidity_ID = 6609;
-    uint256 public _OperationsManagement_ID =7654;
+    struct TeamMembersLock{
+        uint256 _percent;
+        uint256 _releasePercent;
+        uint256 _releaseInterval;
+        uint256 _holdDuration;
+        uint256 _vaultKeyId;
+    }
+    
+    /**
+    * @dev EVENTS:
+    */
+    event COF();
+    event CPE(uint256 oldEndTime, uint256 newEndTime);
+    event BuyPing(
+        address indexed _from,
+        uint256 indexed _tokens,
+        uint256  _value
+    );
 
     /**
      * @dev Reverts if not in crowdsale time range.
@@ -87,13 +80,6 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
         require(isOpen(), "Crowdsale: not open");
         _;
     }
-
-    event BuyPing(
-        address indexed _from,
-        uint256 indexed _tokens,
-        uint256  _value
-    );
-
 
     constructor(
                 MedPingToken token,
@@ -209,7 +195,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     function getParticipantReceivings(address _participant) public view returns (uint256){
         return _receiving[stage][_participant];
     }
-    function _updateParticipantBalance(address _participant, uint256 _giving,uint256 _numOfTokens) internal{
+    function _updateParticipantBalance(address _participant, uint256 _giving,uint256 _numOfTokens) internal returns (bool){
         uint256 oldGivings = getParticipantGivings(_participant);
         uint256 oldReceivings = getParticipantReceivings(_participant);
         
@@ -218,6 +204,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
         
         _contributions[stage][_participant] = newGivings;
         _receiving[stage][_participant] = newReceiving;
+        return true;
     }
     function _isIndividualCapped(address _participant, uint256 _weiAmount)  internal view returns (bool){
         uint256 _oldGiving = getParticipantGivings(_participant);
@@ -251,7 +238,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     }
     function _postParticipation(address _participant,uint256 amount , uint256 _numberOfTokens) nonReentrant() internal returns(bool){
         //record participant givings and receivings
-        _updateParticipantBalance(_participant,amount,_numberOfTokens);
+        require(_updateParticipantBalance(_participant,amount,_numberOfTokens));
         //track number of tokens sold  and amount raised
         _tokensSold += _numberOfTokens;
         _weiRaised += amount;
@@ -310,13 +297,11 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     function hasClosed() public view returns (bool) {
         return block.timestamp > _endTime;
     }
-    function _extendTime(uint256 newEndTime) public onlyOwner {
+    function extendTime(uint256 newEndTime) public onlyOwner {
         require(!hasClosed(), "Crowdsale: close already");
         require(newEndTime > _endTime, "Crowdsale: new endtime must be after current endtime");
-
-        emit CPE(_endTime, newEndTime);
         _endTime = newEndTime;
-
+        emit CPE(_endTime, newEndTime);
     }
     function setCaps(uint256 _softCap, uint256 _hardCap) public onlyOwner returns (bool){
         medPingSoftCap = _softCap;
@@ -338,45 +323,53 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     function isFinalized() public view returns (bool) {
         return _finalized;
     }
+    function calculatePercent(uint numerator, uint denominator) internal  pure returns (uint){
+        return (denominator * (numerator * 100) ) /10000;
+    }
+
     function finalize() public onlyOwner{
         require(!_finalized, "Crowdsale: already finalized");
         require(hasClosed(), "Crowdsale: has not ended");
-        uint totalSup = 100000000;
-
         _finalized = true;
 
+        // one address for the liquidity pool trxnfee 
         //Dev&Marketing
-        uint devmarketTotal = (totalSup * (_DevMarketingPercentage * 100) ) /10000; 
-        EffectDistributionAndLockRelease(_DevMarketing, devmarketTotal, _DevMarketing_TotalDur, _DevMarketing_ReleaseInterval, _DevMarketing_percentPerReleaseInterval,_DevMarketing_ID);
-
-        //Founder 1
-        uint teamTokenTotal = (totalSup * (_TeamTokenPercentage * 100) ) /10000; 
-        EffectDistributionAndLockRelease(_TeamToken, teamTokenTotal, _TeamToken_TotalDur, _TeamToken_ReleaseInterval, _TeamToken_percentPerReleaseInterval,_TeamToken_ID);
-
-        //Listing & Liquidity
-        uint listingLiquidityTotal = (totalSup * (_ListingLiquidityPercentage * 100) ) /10000; 
-        EffectDistributionAndLockRelease(_ListingLiquidity, listingLiquidityTotal, _ListingLiquidity_TotalDur, _ListingLiquidity_ReleaseInterval, _ListingLiquidity_percentPerReleaseInterval,_ListingLiquidity_ID);
-
-        //Operations & Management
-        uint operationsManagementTotal = (totalSup * (_OperationsManagementPercentage * 100) ) /10000;
-        EffectDistributionAndLockRelease(_OperationsManagement, operationsManagementTotal, _OperationsManagement_TotalDur, _OperationsManagement_ReleaseInterval, _OperationsManagement_percentPerReleaseInterval,_OperationsManagement_ID);
-
+        require(distributeToVault(_DevMarketing));
+        // Team Token
+        require(distributeToVault(_TeamToken));
+        // //Listing & Liquidity
+        require(distributeToVault(_ListingLiquidity));
+        // //Operations & Management
+        require(distributeToVault(_OperationsManagement));
         emit COF();
     }
-    function EffectDistributionAndLockRelease(address _beneficiary, uint _totalValue,uint  _totalDur, uint _releaseInterval, uint _percentPerReleaseInterval,uint identifier) internal returns (bool){
-
-            uint intervalValue;
-            uint releaseDay;
-            uint totalValue = _totalValue;
-            uint totalDur = _totalDur;
-            uint interval = _releaseInterval; 
-            uint percentPerInterval = _percentPerReleaseInterval;
-            intervalValue = (totalValue * (percentPerInterval * 100) ) /10000;
-            intervalValue = (totalValue * (percentPerInterval * 100) ) /10000;
-            for (interval; interval <= totalDur; interval ++ ) {  //for loop example
-                releaseDay = block.timestamp + interval * 1 days; //CHANGE BACK TO 30 DAYS
-                _vaultContract.recordShareToVault(_beneficiary, intervalValue * (10 **18) , releaseDay,identifier);
-            }
+    
+    function setTeamMembersLock(address _beneficiary, uint percent,uint releaseInterval,  uint releasePercent, uint holdDuration, uint vaultKeyId ) public onlyOwner returns (bool){
+        TeamMembersLock memory lock;
+        lock._percent = percent;
+        lock._releasePercent = releasePercent;
+        lock._releaseInterval = releaseInterval;
+        lock._holdDuration = holdDuration;
+        lock._vaultKeyId = vaultKeyId;
+        TeamMembersLockandEarlyInvestorsProfile[_beneficiary] = lock;
         return true;
     }
+    function getTeamMembersLock(address _beneficiary) public view returns (uint256 percent,uint256 holdDuration,uint256 interval,uint256 releaserpercent,uint256 vualtKeyId){
+        TeamMembersLock storage lock = TeamMembersLockandEarlyInvestorsProfile[_beneficiary];
+        return (lock._percent,lock._holdDuration,lock._releaseInterval,lock._releasePercent,lock._vaultKeyId);
+    }
+
+    function distributeToVault(address _beneficiary) internal returns (bool){
+        uint totalSup = 200000000;
+        uint releaseDay;
+        TeamMembersLock storage lock = TeamMembersLockandEarlyInvestorsProfile[_beneficiary];
+        uint totalFunds    = calculatePercent(lock._percent, totalSup);
+        uint intervalValue = calculatePercent(lock._releasePercent, totalFunds);
+        for (lock._releaseInterval; lock._releaseInterval <= lock._holdDuration; lock._releaseInterval ++ ) {  //for loop example
+                releaseDay = block.timestamp + lock._releaseInterval * 1 days; //CHANGE BACK TO 30 DAYS
+                _vaultContract.recordShareToVault(_beneficiary, intervalValue * (10 **18) , releaseDay,lock._vaultKeyId);
+        }
+        return true;
+    }
+    
 }

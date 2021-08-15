@@ -23,8 +23,8 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     uint256 public _tokensSold;
     uint256 public _weiRaised;
     uint256  _tokensReamaining; 
-    address payable  _wallet;
     uint256 _crossDecimal = 10**8;
+    
     // Track investor contributions
     uint256  investorMinCap;
     uint256  investorMaxCap;
@@ -33,7 +33,8 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     uint numParticipants;
     uint256 _startTime;
     uint256 _endTime;
-    bool private _finalized;
+    bool private _finalized = false;
+    bool private _vaultLocked= false;
     
     // Crowdsale Stages
     enum CrowdsaleStage { PreSale,PrivateSale,PublicSale,Paused,Ended }
@@ -49,6 +50,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
      */
     address BNBUSD_Aggregator = 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526;
     address payable admin;
+    address payable  _wallet;
     address payable public _DevMarketing;
     address payable public _TeamToken;
     address payable public _ListingLiquidity;
@@ -58,6 +60,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
         uint256 _percent;
         uint256 _releasePercent;
         uint256 _releaseInterval;
+        uint256 _releaseStarts;
         uint256 _holdDuration;
         uint256 _vaultKeyId;
     }
@@ -71,6 +74,12 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
         address indexed _from,
         uint256 indexed _tokens,
         uint256  _value
+    );
+    event VaultCreated(
+        uint256 indexed _vaultKey,
+        address indexed _beneficiary,
+        uint256  releaseDay,
+        uint256 amount
     );
 
     /**
@@ -251,6 +260,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
         return true;
     }
     function releaseRistrictions () public onlyOwner() {
+        require(_tokenContract.getFirstListingDate() != 1,"First listing date has to be set");
         require(isFinalized(),"Crowdsale is not finanlized");
         _tokenContract.releaseTokenTransfer();
     }
@@ -320,6 +330,9 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
     function getInvestorMaxCap() public view returns (uint256){
         return investorMaxCap;
     }
+    function vaultIsLocked() public view returns (bool) {
+        return _vaultLocked;
+    }
     function isFinalized() public view returns (bool) {
         return _finalized;
     }
@@ -327,47 +340,59 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
         return (denominator * (numerator * 100) ) /10000;
     }
 
-    function finalize() public onlyOwner{
-        require(!_finalized, "Crowdsale: already finalized");
+    function lockVault() public onlyOwner(){
         require(hasClosed(), "Crowdsale: has not ended");
-        _finalized = true;
-
-        // one address for the liquidity pool trxnfee 
+        require(_tokenContract.getFirstListingDate() != 1,"First listing date for token has to be set");
+        uint256 listingDate = _tokenContract.getFirstListingDate();
         //Dev&Marketing
-        require(distributeToVault(_DevMarketing));
+        require(distributeToVault(_DevMarketing,listingDate));
         // Team Token
-        require(distributeToVault(_TeamToken));
-        // //Listing & Liquidity
-        require(distributeToVault(_ListingLiquidity));
-        // //Operations & Management
-        require(distributeToVault(_OperationsManagement));
+        require(distributeToVault(_TeamToken,listingDate));
+        //Listing & Liquidity
+        require(distributeToVault(_ListingLiquidity,listingDate));
+        //Operations & Management
+        require(distributeToVault(_OperationsManagement,listingDate));
+         _vaultLocked = true;
+    }
+
+    function finalize() public onlyOwner{
+        require(!isFinalized(), "Crowdsale: already finalized");
+        //require(vaultIsLocked(), "Vault not locked");
+        _finalized = true;
+        uint256 crowdsaleBal = _tokenContract.balanceOf(address(this)); //balance of crowdsale contract
+        //transfer remaining tokens back to admin account then update the balance sheet
+         require(_tokenContract.transfer(admin, crowdsaleBal),"crowdsale balance transfer failed");
+         require(_tokenContract.updatecrowdsaleBal(crowdsaleBal),"crowdsale balance update failed");
         emit COF();
     }
-    
-    function setTeamMembersLock(address _beneficiary, uint percent,uint releaseInterval,  uint releasePercent, uint holdDuration, uint vaultKeyId ) public onlyOwner returns (bool){
+    function setTeamMembersLock(address _beneficiary, uint percent,uint releaseInterval,  uint releasePercent, uint holdDuration, uint vaultKeyId,uint releaseStarts ) public onlyOwner returns (bool){
         TeamMembersLock memory lock;
         lock._percent = percent;
         lock._releasePercent = releasePercent;
         lock._releaseInterval = releaseInterval;
+        lock._releaseStarts = releaseStarts;
         lock._holdDuration = holdDuration;
         lock._vaultKeyId = vaultKeyId;
         TeamMembersLockandEarlyInvestorsProfile[_beneficiary] = lock;
         return true;
     }
-    function getTeamMembersLock(address _beneficiary) public view returns (uint256 percent,uint256 holdDuration,uint256 interval,uint256 releaserpercent,uint256 vualtKeyId){
+    function getTeamMembersLock(address _beneficiary) public view returns (uint256 percent,uint256 holdDuration,uint256 interval,uint256 releaserpercent,uint256 vualtKeyId,uint256 releaseStarts){
         TeamMembersLock storage lock = TeamMembersLockandEarlyInvestorsProfile[_beneficiary];
-        return (lock._percent,lock._holdDuration,lock._releaseInterval,lock._releasePercent,lock._vaultKeyId);
+        return (lock._percent,lock._holdDuration,lock._releaseInterval,lock._releasePercent,lock._vaultKeyId,lock._releaseStarts);
     }
-
-    function distributeToVault(address _beneficiary) internal returns (bool){
-        uint totalSup = 200000000;
+    function distributeToVault(address _beneficiary,uint listingDate) internal returns (bool){
+        uint totalSup = _tokenContract.totalSupply();
         uint releaseDay;
         TeamMembersLock storage lock = TeamMembersLockandEarlyInvestorsProfile[_beneficiary];
         uint totalFunds    = calculatePercent(lock._percent, totalSup);
-        uint intervalValue = calculatePercent(lock._releasePercent, totalFunds);
-        for (lock._releaseInterval; lock._releaseInterval <= lock._holdDuration; lock._releaseInterval ++ ) {  //for loop example
-                releaseDay = block.timestamp + lock._releaseInterval * 1 days; //CHANGE BACK TO 30 DAYS
-                _vaultContract.recordShareToVault(_beneficiary, intervalValue * (10 **18) , releaseDay,lock._vaultKeyId);
+        uint amountDue = calculatePercent(lock._releasePercent, totalFunds);
+        uint interval = lock._releaseInterval;
+        uint startsFrom = lock._releaseStarts;
+        uint hold = lock._holdDuration;
+        for (uint i=interval; i <= hold; i += interval ){  //for loop example check to see iff the dates are incremented successfully
+                releaseDay = listingDate + (startsFrom + i) * 30 days; 
+                uint key = _vaultContract.recordShareToVault(_beneficiary, amountDue , releaseDay,lock._vaultKeyId);
+                emit VaultCreated(key,_beneficiary, releaseDay,amountDue);
         }
         return true;
     }

@@ -8,7 +8,7 @@
  *
  * trufflesuite.com/docs/advanced/configuration
  *
- * To deploy via Infura you'll need a wallet provider (like @truffle/hdwallet-provider)
+ * To deploy via Infura you'll need a wallet provider (like @truffle/wallet-provider)
  * to sign your transactions before they're sent to a remote public node. Infura accounts
  * are available for free at: infura.io/register.
  *
@@ -23,6 +23,7 @@ const HDWalletProvider = require('@truffle/hdwallet-provider');
 //
 const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim();
+const API_KEY = fs.readFileSync(".bscapikey").toString().trim();
 
 module.exports = {
   /**
@@ -47,10 +48,12 @@ module.exports = {
      port: 7545,            // Standard Ethereum port (default: none)
      network_id: "*",       // Any network (default: none)
     },
+    //29990000 96990000
     testnet: {
-      provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-1-s1.binance.org:8545`),
+      provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-2-s1.binance.org:8545`),
       network_id: 97,
-      gas: 9500000,
+      // gasPrice: 20000000000,
+      gas:96990000,
       confirmations: 10,
       timeoutBlocks: 500,
       skipDryRun: true
@@ -118,5 +121,11 @@ module.exports = {
 
   db: {
     enabled: false
+  },
+  plugins: [
+    'truffle-plugin-verify'
+  ],
+  api_keys: {
+    bscscan: API_KEY
   }
 };

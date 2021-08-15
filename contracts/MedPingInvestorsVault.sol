@@ -49,7 +49,7 @@ contract MedPingInvestorsVault is Ownable{
         return (v._beneficiary,v._balanceDue,v._dueBy);
     }
 
-    function recordShareToVault(address beneficiary, uint256 amount, uint256 dueBy,uint identifier) onlyOperator public {
+    function recordShareToVault(address beneficiary, uint256 amount, uint256 dueBy,uint identifier) onlyOperator public returns(uint vaultKey) {
         uint key = createVaultKey(beneficiary,identifier);
         VaultStruct memory vault;
         vault._beneficiary = beneficiary;
@@ -58,6 +58,7 @@ contract MedPingInvestorsVault is Ownable{
         VaultStructs[key] = vault;
         VaultKeys[beneficiary].push(key);
         emit LogVaultDeposit(msg.sender, amount, dueBy);
+        return key;
     }
 
     function withdrawFromVault(uint vaultKey) public returns(bool success) {

@@ -357,7 +357,7 @@ contract MedPingCrowdSale  is Ownable, ReentrancyGuard{
 
     function finalize() public onlyOwner{
         require(!isFinalized(), "Crowdsale: already finalized");
-        //require(vaultIsLocked(), "Vault not locked");
+        require(vaultIsLocked(), "Vault not locked");
         _finalized = true;
         uint256 crowdsaleBal = _tokenContract.balanceOf(address(this)); //balance of crowdsale contract
         //transfer remaining tokens back to admin account then update the balance sheet

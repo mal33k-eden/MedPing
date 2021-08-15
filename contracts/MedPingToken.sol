@@ -36,7 +36,7 @@ contract MedPingToken is ERC20,Ownable{
     *check if is early investor and if within the 30days constraint
     */
     modifier investorChecks(uint256 _value,address _sender){
-        if( (firstListingDate + 90 days) > block.timestamp){ //is investor and within 30days constraint 
+        if( (firstListingDate + 30 days) > block.timestamp){ //is investor and within 30days constraint 
             if(isEarlyInvestor(msg.sender)){
                  require(provisionLockAllownces(_sender)); //provision allowance and update stage
                  lockAllowance storage lock = lockAllowances[_sender]; 

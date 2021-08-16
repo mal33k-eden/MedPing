@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract MedPingToken is ERC20,Ownable{
 
+    /// @notice Contract ownership will be renouced after all the lock and burn is fullfilled. 
     using SafeMath for uint256;
     uint256 tSupply = 200 * 10**6 * (10 ** uint256(decimals()));
     uint256 crowdsaleBal; // token remaining after crowdsale 
@@ -150,4 +151,6 @@ contract MedPingToken is ERC20,Ownable{
     function isBurnBucketEmpty() public view  returns(bool){
         return burnBucketEmptied;
     }
+
+    
 }

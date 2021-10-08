@@ -67,8 +67,8 @@ contract MedPingInvestorsVault is Ownable{
         require(v._dueBy <= block.timestamp);
         uint256 amount = v._balanceDue;
         v._balanceDue = 0;
-        emit LogVaultWithdrawal(msg.sender, amount);
         require(_token.transfer(msg.sender, amount));
+        emit LogVaultWithdrawal(msg.sender, amount);
         return true;
     }    
 }

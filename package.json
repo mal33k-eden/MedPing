@@ -20,6 +20,7 @@
     "@chainlink/contracts": "^0.1.9",
     "@openzeppelin/contracts": "^4.1.0",
     "@truffle/hdwallet-provider": "^1.4.1",
+    "flatten-sol": "^0.1.1",
     "lite-server": "^2.6.1",
     "luxon": "^1.27.0"
   },

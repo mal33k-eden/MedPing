@@ -23,7 +23,7 @@ const HDWalletProvider = require('@truffle/hdwallet-provider');
 //
 const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim();
-const API_KEY = fs.readFileSync(".bscapikey").toString().trim();
+//const API_KEY = fs.readFileSync(".bscapikey").toString().trim();
 
 module.exports = {
   /**
@@ -53,7 +53,7 @@ module.exports = {
       provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-2-s1.binance.org:8545`),
       network_id: 97,
       // gasPrice: 20000000000,
-      gas:96990000,
+      gas:16990000,
       confirmations: 10,
       timeoutBlocks: 500,
       skipDryRun: true
@@ -126,6 +126,6 @@ module.exports = {
     'truffle-plugin-verify'
   ],
   api_keys: {
-    bscscan: API_KEY
+    bscscan: 'NWGPQY3K95AS6J6GS6B844HCYIBYH5BCTW'
   }
 };

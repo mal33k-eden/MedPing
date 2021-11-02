@@ -1,4 +1,5 @@
-pragma solidity 0.8;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -26,7 +27,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
   
     
     // Crowdsale Stages
-    enum CrowdsaleStage { PreSale,PrivateSale,PublicSale,Paused,Ended }
+    enum CrowdsaleStage {PublicSale,Paused,Ended }
     // Default to presale stage
     CrowdsaleStage public stage = CrowdsaleStage.Paused;
     
@@ -76,7 +77,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
         _tokenContract = token;//link to token contract 
         _BUSDContract = _BUSD; //link to token vault contract 
         _wallet = wallet;//token wallet 
-        updateStage(4);//set default stage balance
+        updateStage(1);//set default stage balance
         BNBUSD = AggregatorV3Interface(BNBUSD_Aggregator);
         _startTime = startingTime;//set periods management
         _endTime = endingTime;//set periods management
@@ -116,44 +117,29 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
     //sets the ICO Stage, rates  and the CrowdsaleStageBalance 
     function updateStage(uint _stage)public onlyOwner returns (bool){
        
-         if(uint(CrowdsaleStage.PreSale) == _stage) {
-          stage = CrowdsaleStage.PreSale;
-          CrowdsaleStageBalance[stage]=12500000 * (10**18) ; //
-          investorMinCap   = 0.1 * (10**18);
-          investorMaxCap  = 1.5 * (10**18);
-          _rate = 0.0095 * (10**8); //usd 
-        }else if (uint(CrowdsaleStage.PrivateSale) == _stage) {
-            emptyStageBalanceToBurnBucket();
-         stage = CrowdsaleStage.PrivateSale;
-          CrowdsaleStageBalance[stage]=37500000 * (10**18); //
-          investorMinCap   = 0.2 * (10**18);
-          investorMaxCap  = 5 * (10**18);
-           _rate = 0.025 * (10**8); // usd
-        }
-        else if (uint(CrowdsaleStage.PublicSale) == _stage) {
-            emptyStageBalanceToBurnBucket();
-         stage = CrowdsaleStage.PublicSale;
+        if (uint(CrowdsaleStage.PublicSale) == _stage) {
+            // emptyStageBalanceToBurnBucket();
+          stage = CrowdsaleStage.PublicSale;
           CrowdsaleStageBalance[stage]=20000000 * (10**18); //
           investorMinCap   = 0.1 * (10**18);
           investorMaxCap  = 5 * (10**18);
-           _rate = 0.075 * (10**8); // usd
+           _rate = 0.025 * (10**8); // usd
         }else if(uint(CrowdsaleStage.Paused) == _stage){
             stage = CrowdsaleStage.Paused;
-            CrowdsaleStageBalance[stage]=0;
             _rate = 0; //0.00 eth
         }else if(uint(CrowdsaleStage.Ended) == _stage){
-            emptyStageBalanceToBurnBucket();
+            emptyStageBalanceToVCSBucket();
             stage = CrowdsaleStage.Ended;
             CrowdsaleStageBalance[stage]=0;
             _rate = 0; //0.00 eth
         }
         return true;
     }
-    function emptyStageBalanceToBurnBucket() internal {
+    function emptyStageBalanceToVCSBucket() internal {
         uint256 perviousBal = CrowdsaleStageBalance[stage];
         if(perviousBal > 0){
             
-            require(_tokenContract.transfer(_tokenContract.getBurnBucket(), perviousBal),"crowdsale balance transfer failed");
+            require(_tokenContract.transfer(_tokenContract.getVcsBucket(), perviousBal),"crowdsale balance transfer failed");
         }
     }
     function getStageBalance() public view returns (uint256) {
@@ -215,13 +201,8 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
         _tokensSold += _numberOfTokens;
         //subtract from crowdsale stage balance 
         _subFromCrowdsaleStageBalance(_numberOfTokens);
-        //lock investments of initial investors 
-       if(stage == CrowdsaleStage.PreSale){
-            _tokenContract.addToLock(_numberOfTokens,0,_participant); 
-        }
-        if(stage == CrowdsaleStage.PrivateSale ){
-            _tokenContract.addToLock(0,_numberOfTokens,_participant);
-        }
+        _tokenContract.addToLock(0,_numberOfTokens,_participant);
+        
         return true;
     }
     function releaseRistrictions () internal returns(bool) {

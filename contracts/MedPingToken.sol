@@ -1,4 +1,5 @@
-pragma solidity 0.8 ;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8 ;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -8,7 +9,7 @@ contract MedPingToken is ERC20,MedPingLockBox{
     using SafeMath for uint256;
     uint256 tSupply = 200 * 10**6 * (10 ** uint256(decimals()));
 
-    constructor() ERC20("Medping", "MPG"){
+    constructor() ERC20("MedPing", "MPG"){
         _mint(msg.sender, tSupply);
     }
     

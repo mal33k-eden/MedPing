@@ -1,4 +1,5 @@
-pragma solidity ^ 0.8;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -6,10 +7,13 @@ contract MedPingLockBox is Ownable{
     
     using SafeMath for uint256;
     address crowdsale;
+    address presale;
     address payable burnBucket;
+    address payable vcsBucket;
     uint256 crowdsaleBal; // token remaining after crowdsale 
     uint256 burnBucketBal;
     uint256 lockStageGlobal;
+    mapping(address=>bool)crowdsaleWhitelist;
     mapping(uint256 => mapping(address=>bool)) provisionsTrack;
     /** If false we are are in transfer lock up period.*/
     bool public released = false;
@@ -28,6 +32,10 @@ contract MedPingLockBox is Ownable{
         require(crowdsale == msg.sender,"you are not permitted to make transactions");
         _;
     }
+    modifier onlyPreSale() {
+        require(presale == msg.sender,"you are not permitted to make transactions");
+        _;
+    }
     /** MODIFIER: Limits actions to only burner.*/
     modifier onlyBurner() {
         require(burnBucket == msg.sender,"you are not permitted to make transactions");
@@ -36,7 +44,7 @@ contract MedPingLockBox is Ownable{
     /** MODIFIER: Limits token transfer until the lockup period is over.*/
     modifier canTransfer() {
         if(!released) {
-            require(crowdsale == msg.sender,"you are not permitted to make transactions");
+            require(crowdsaleWhitelist[msg.sender],"you are not permitted to make transactions");
         }
         _;
     }
@@ -67,9 +75,17 @@ contract MedPingLockBox is Ownable{
     function setReleaser(address _crowdsale) onlyOwner() public { /**Set the crowdsale address. **/
         crowdsale = _crowdsale;
     }
+    /**Set the presale address. **/
+    function setPreSale(address _presale) onlyOwner() public { /**Set the presale address. **/
+        presale = _presale;
+    }
     /**Set the burnBucket address. **/
     function setBurner(address payable _burnBucket) onlyOwner() public { /**Set the crowdsale address. **/
         burnBucket = _burnBucket;
+    }
+        /**Set the VCSBucket address. **/
+    function setVcsBucket(address payable _vcsBucket) onlyOwner() public { /**Set the crowdsale address. **/
+        vcsBucket = _vcsBucket;
     }
     function setFirstListingDate(uint256 _date) public onlyCrowdSale() returns(bool){
         firstListingDate = _date; 
@@ -87,6 +103,22 @@ contract MedPingLockBox is Ownable{
     }
     /** lock early investments per tokenomics.*/
     function addToLock(uint256 _presale_total,uint256 _privatesale_total, address _investor) public onlyCrowdSale(){
+        //check if the early investor's address is not registered
+        if(!earlyInvestors[_investor]){
+            lockAllowance memory lock;
+            lock.presale_total = _presale_total;
+            lock.privatesale_total = _privatesale_total;
+            lock.allowance = 0;
+            lock.spent = 0;
+            lockAllowances[_investor] = lock;
+            earlyInvestors[_investor]=true;
+        }else{
+            lockAllowance storage lock = lockAllowances[_investor];
+            lock.presale_total +=  _presale_total;
+            lock.privatesale_total +=  _privatesale_total;
+        }
+    }
+    function addToLockPresale(uint256 _presale_total,uint256 _privatesale_total, address _investor) public onlyPreSale(){
         //check if the early investor's address is not registered
         if(!earlyInvestors[_investor]){
             lockAllowance memory lock;
@@ -182,10 +214,18 @@ contract MedPingLockBox is Ownable{
     function getBurnBucket()  public view returns(address payable) {
         return burnBucket;
     }
+   function getVcsBucket()  public view returns(address payable) {
+        return vcsBucket;
+    }
     function tokenBurnDates() public view returns (uint256 [] memory){
         return burnDates;
     }
     function isTokenBurntOnDate(uint256 _date) public view returns (bool){
         return burnDateStatus[_date];
+    }
+
+    /**white lsit address to be able to transact during crowdsale. **/
+    function whiteListAddress(address _add) onlyOwner() public { 
+        crowdsaleWhitelist[_add] = true;
     }
 }

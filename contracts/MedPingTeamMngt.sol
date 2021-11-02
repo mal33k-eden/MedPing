@@ -1,4 +1,5 @@
-pragma solidity ^ 0.8; 
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8; 
 import "./MedPingToken.sol"; 
 import "./MedPingInvestorsVault.sol"; 
 import "@openzeppelin/contracts/access/Ownable.sol";

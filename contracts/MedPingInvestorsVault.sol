@@ -1,4 +1,5 @@
-pragma solidity 0.8;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8;
 
 
 import "./MedPingToken.sol"; 
@@ -7,6 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract MedPingInvestorsVault is Ownable{
     MedPingToken _token;
     address _operator;
+    address _presale;
 
     struct VaultStruct {
         address _beneficiary;
@@ -14,7 +16,7 @@ contract MedPingInvestorsVault is Ownable{
         uint256 _dueBy;
     }
     modifier onlyOperator {
-        require(msg.sender == _operator, "You can not use this vault");
+        require((msg.sender == _operator)|| msg.sender == _presale, "You can not use this vault");
         _;
     }
     mapping(uint256 => VaultStruct) public VaultStructs; // This could be a mapping by address, but these numbered lockBoxes support possibility of multiple tranches per address
@@ -26,13 +28,19 @@ contract MedPingInvestorsVault is Ownable{
     constructor(MedPingToken token) Ownable() {
         _token = token;
     }
-
+    function getPresale() public view returns (address){
+        return _presale;
+    }
     function getOperator() public view returns (address){
         return _operator;
     }
     function setOperator(address operator) public onlyOwner returns (bool){
           _operator = operator;
           return true;
+    }
+    function setPreSale(address presale) public onlyOwner returns (bool){
+        _presale = presale;
+        return true;
     }
     
     function createVaultKey(address beneficiary, uint identifier) internal view returns (uint256) {

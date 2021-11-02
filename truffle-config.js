@@ -50,12 +50,13 @@ module.exports = {
     },
     //29990000 96990000
     testnet: {
-      provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-2-s1.binance.org:8545`),
+      provider: () => new HDWalletProvider(mnemonic, `https://data-seed-prebsc-1-s1.binance.org:8545`),
       network_id: 97,
       // gasPrice: 20000000000,
       gas:16990000,
       confirmations: 10,
-      timeoutBlocks: 500,
+      timeoutBlocks: 1500,
+      networkCheckTimeout: 1000000,
       skipDryRun: true
     },
 

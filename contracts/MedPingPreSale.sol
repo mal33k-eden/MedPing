@@ -17,8 +17,9 @@ contract MedPingPreSale is Ownable,ReentrancyGuard{
     mapping(address=>uint256) amaWinners;
     uint256 _rate;
     AggregatorV3Interface internal BNBUSD;
-    address BNBUSD_Aggregator = 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526;
+    // address BNBUSD_Aggregator = 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526;
     uint256 _crossDecimal = 10**8;
+    bool _vaultLocked = false;
 
     event VaultCreated(
         uint256 indexed _vaultKey,
@@ -31,7 +32,7 @@ contract MedPingPreSale is Ownable,ReentrancyGuard{
         _token = token;
         _vcsBucket = vcsbucket;
         _vaultContract = vault;//link to token vault contract 
-        BNBUSD = AggregatorV3Interface(BNBUSD_Aggregator);
+        
           _rate = 0.0095  * (10 ** 8);
     }
 
@@ -111,6 +112,7 @@ contract MedPingPreSale is Ownable,ReentrancyGuard{
         return (denominator * (numerator * 100) ) /10000;
     }
     function _distributeVcsTokenToVault(address _beneficiary,uint listingDate,uint _totalToLock) internal  returns (bool){
+         require(!_vaultLocked, "vault already locked");
         uint releaseDay;
         uint amountDue    = calculatePercent(5,_totalToLock); //5% pf the amount remaining
         uint interval = 1;
@@ -121,6 +123,7 @@ contract MedPingPreSale is Ownable,ReentrancyGuard{
                 uint key = _vaultContract.recordShareToVault(_beneficiary, amountDue , releaseDay,9384);
                 emit VaultCreated(key,_beneficiary, releaseDay,amountDue);
         }
+        _vaultLocked = true;
         return true;
     }
 
@@ -134,6 +137,10 @@ contract MedPingPreSale is Ownable,ReentrancyGuard{
         _token.transfer(address(_vaultContract), bal);
         _distributeVcsTokenToVault(_vcsBucket,_token.getFirstListingDate(),bal);
         return true;
+    }
+    function setBNBUSDCLinkAggregator(address _aggregator) public  onlyOwner() returns (bool){
+         BNBUSD = AggregatorV3Interface(_aggregator);
+         return true;
     }
 
 }

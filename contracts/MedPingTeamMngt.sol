@@ -19,7 +19,7 @@ contract MedPingTeamManagement is Ownable{
      /**
      * @dev ADDRESSES.
      */
-    address BNBUSD_Aggregator = 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526;
+    //address BNBUSD_Aggregator = 0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526;
     address payable admin;
     address payable  _wallet;
     address  public _DevMarketing;
@@ -35,7 +35,7 @@ contract MedPingTeamManagement is Ownable{
         uint256 _holdDuration;
         uint256 _vaultKeyId;
     }
-    mapping(address => TeamMembersLock) public TeamMembersLockandEarlyInvestorsProfile;
+    mapping(address => TeamMembersLock) private  TeamMembersLockandEarlyInvestorsProfile;
 
     event VaultCreated(
         uint256 indexed _vaultKey,
@@ -56,7 +56,7 @@ contract MedPingTeamManagement is Ownable{
         _ListingLiquidity = ListingLiquidity;
         _OperationsManagement = OperationsManagement;
         _vaultContract = vault;//link to token vault contract 
-        _tokenContract = token; //link to token contract 
+        _tokenContract = token; //link to token contract et
         totalSup = _tokenContract.totalSupply();
     }
 
@@ -99,6 +99,7 @@ contract MedPingTeamManagement is Ownable{
     function lockVault() internal {
         uint256 flistingDate = _tokenContract.getFirstListingDate();
         require(flistingDate != 1,"First listing date for token has to be set");
+        require(!_vaultLocked, "vault already locked");
         //Dev&Marketing
         require(distributeToVault(_DevMarketing,flistingDate));
         // Team Token

@@ -29,22 +29,22 @@ contract MedPingLockBox is Ownable{
 
     /** MODIFIER: Limits actions to only crowdsale.*/
     modifier onlyCrowdSale() {
-        require(crowdsale == msg.sender,"you are not permitted to make transactions");
+        require(crowdsale == msg.sender,"you are not permitted to make transactions, Only CrowdSale");
         _;
     }
     modifier onlyPreSale() {
-        require(presale == msg.sender,"you are not permitted to make transactions");
+        require(presale == msg.sender,"you are not permitted to make transactions,Only PreSale");
         _;
     }
     /** MODIFIER: Limits actions to only burner.*/
     modifier onlyBurner() {
-        require(burnBucket == msg.sender,"you are not permitted to make transactions");
+        require(burnBucket == msg.sender,"you are not permitted to make transactions,Only Burnner");
         _;
     }
     /** MODIFIER: Limits token transfer until the lockup period is over.*/
     modifier canTransfer() {
         if(!released) {
-            require(crowdsaleWhitelist[msg.sender],"you are not permitted to make transactions");
+            require(crowdsaleWhitelist[msg.sender],"you are not permitted to make transactions, not whitelisted");
         }
         _;
     }
@@ -190,7 +190,7 @@ contract MedPingLockBox is Ownable{
     /** update token remaining after crowdsale .*/
     function updatecrowdsaleBal(uint256 _amount,uint256 _tSupply) public onlyCrowdSale() returns(bool success) {
         crowdsaleBal    += _amount;
-        burnBucketBal   = (_tSupply.mul(5 *100)).div(10000) + crowdsaleBal; // 5% of total supply + crowdsale bal
+        burnBucketBal   = (_tSupply.mul(5 *100)).div(10000); // 5% of total supply
         return true;
     }
     function isEarlyInvestor(address investor) public view returns(bool){
@@ -227,5 +227,11 @@ contract MedPingLockBox is Ownable{
     /**white lsit address to be able to transact during crowdsale. **/
     function whiteListAddress(address _add) onlyOwner() public { 
         crowdsaleWhitelist[_add] = true;
+    }
+    function iswhiteListAddress(address _add) public view returns(bool) { 
+        if(crowdsaleWhitelist[_add]){
+            return true;
+        }
+        return false;
     }
 }

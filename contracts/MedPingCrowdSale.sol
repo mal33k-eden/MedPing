@@ -78,7 +78,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
         _BUSDContract = _BUSD; //link to token vault contract 
         _wallet = wallet;//token wallet 
         updateStage(1);//set default stage balance
-        BNBUSD = AggregatorV3Interface(BNBUSD_Aggregator);
+       
         _startTime = startingTime;//set periods management
         _endTime = endingTime;//set periods management
         _finalized = false;//set periods management
@@ -120,7 +120,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
         if (uint(CrowdsaleStage.PublicSale) == _stage) {
             // emptyStageBalanceToBurnBucket();
           stage = CrowdsaleStage.PublicSale;
-          CrowdsaleStageBalance[stage]=20000000 * (10**18); //
+          CrowdsaleStageBalance[stage]=27500000 * (10**18); //
           investorMinCap   = 0.1 * (10**18);
           investorMaxCap  = 5 * (10**18);
            _rate = 0.025 * (10**8); // usd
@@ -136,7 +136,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
         return true;
     }
     function emptyStageBalanceToVCSBucket() internal {
-        uint256 perviousBal = CrowdsaleStageBalance[stage];
+        uint256 perviousBal = _tokenContract.balanceOf(address(this));
         if(perviousBal > 0){
             
             require(_tokenContract.transfer(_tokenContract.getVcsBucket(), perviousBal),"crowdsale balance transfer failed");
@@ -228,6 +228,10 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
          require(block.timestamp <= timeStamp + 1 days);
         return price;
     }
+    function setBNBUSDCLinkAggregator(address _aggregator) public  onlyOwner() returns (bool){
+         BNBUSD = AggregatorV3Interface(_aggregator);
+         return true;
+    }
     /**
     * @dev forwards funds to the sale Wallet
     */
@@ -282,6 +286,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
     }
     function lockTeamVault() public onlyOwner() returns (bool){
         require(hasClosed(), "Crowdsale: has not ended");
+        
         lockVault();
         return true;
     }
@@ -299,7 +304,7 @@ contract MedPingCrowdSale  is ReentrancyGuard,MedPingTeamManagement{
         uint256 crowdsaleTk = (tsupply.mul(20*100)).div(1000); //balance of crowdsale contract
         uint256 crowdsaleBal = crowdsaleTk - _tokensSold;
         //transfer remaining tokens back to admin account then update the balance sheet
-         require(_tokenContract.updatecrowdsaleBal(crowdsaleBal,tsupply),"crowdsale balance update failed");
+        require(_tokenContract.updatecrowdsaleBal(crowdsaleBal,tsupply),"crowdsale balance update failed");
         emit COF();
     }
     

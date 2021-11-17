@@ -9,7 +9,7 @@ contract MedPingToken is ERC20,MedPingLockBox{
     using SafeMath for uint256;
     uint256 tSupply = 200 * 10**6 * (10 ** uint256(decimals()));
 
-    constructor() ERC20("MedPing", "MPG"){
+    constructor() ERC20("TESE", "POP"){
         _mint(msg.sender, tSupply);
     }
     

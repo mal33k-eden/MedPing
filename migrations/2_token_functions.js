@@ -1,59 +1,51 @@
-
 const MedPingToken = artifacts.require("MedPingToken");
 const MedPingCrowdSale = artifacts.require("MedPingCrowdSale");
 const MedPingInvestorsVault = artifacts.require("MedPingInvestorsVault");
 const MedPingPreSale = artifacts.require("MedPingPreSale");
+const { DateTime } = require("luxon");
+ 
 
-//migrate --reset -f 2 --to 2
-
+//migrate --reset -f 1 --to 1
 module.exports = async function (deployer,network,accounts) {
-    //deploy token 
+  //deploy token 
   var adapter = MedPingToken.interfaceAdapter;
   const web3 = adapter.web3;
-   
+  
   const token = await MedPingToken.deployed();
-  const vault = await MedPingInvestorsVault.deployed();
-  const crowdsale = await MedPingCrowdSale.deployed();  
-  const contractPreSale = await MedPingPreSale.deployed(); 
+  await token.setReleaser(accounts[0]);
 
-  var softCap = 69063; //usd from spreadsheet
-  var hardCap = 1690630; //usd from spreadsheet
-  //SUPPLIES
-  var supplyTeamToken   =  "110000000000000000000000000"; // FOR MPG TEAM
-  var supplyBurnBucket  =  "10000000000000000000000000";
-  var supplyCrowdSale   =  "27500000000000000000000000"; 
-  var supplyExchange    =  "30000000000000000000000000";
-  var supplyPreSale     =  "12500000000000000000000000";
+  // var startTime = Math.trunc(DateTime.now().toLocal().plus({seconds:120}).toSeconds());
+  // var endTime = Math.trunc(DateTime.now().toLocal().plus({ minutes:60}).toSeconds());
+  var startTime = Math.trunc(DateTime.now().toLocal().plus({minutes:5}).toSeconds());
+  var endTime = Math.trunc(DateTime.now().toLocal().plus({ hours:23}).toSeconds());
+ 
+ 
   //ADDRESSES
+  var busdContract = '0xe9e7cea3dedca5984780bafc599bd69add087d56'; //change to live 0xe9e7cea3dedca5984780bafc599bd69add087d56
   var addDevMarketing = accounts[9];
   var addTeamToken = accounts[8];
   var addListingLiquidity = accounts[7];
   var addOperationsManagement = accounts[6];
-  var addBurnBucket = accounts[5]; 
-  var addExchangeBK = accounts[3];
+  var wallet = accounts[2];
+  var addVcsBucket = accounts[4];
 
+  //deploy vault 
+  await deployer.deploy(MedPingInvestorsVault,token.address);
+  const vault = await MedPingInvestorsVault.deployed();
 
-    await crowdsale.setCaps(softCap,hardCap);
-    await crowdsale.setTeamMembersLock(addDevMarketing,5,1,5,20,8976,1);
-    await crowdsale.setTeamMembersLock(addTeamToken,18,3,10,30,7654,3);
-    await crowdsale.setTeamMembersLock(addListingLiquidity,27,1,1,100,6609,1);
-    await crowdsale.setTeamMembersLock(addOperationsManagement,5,1,5,20,7654,1);
+  //deploy crowdsaleContract 
+  await deployer.deploy(
+    MedPingCrowdSale,
+    token.address,vault.address,busdContract,startTime,
+    endTime, wallet,addDevMarketing,
+    addTeamToken,addListingLiquidity,addOperationsManagement
+  );
 
-    await token.whiteListAddress(contractPreSale.address);
-    await token.whiteListAddress(accounts[0]);
-    await token.whiteListAddress(addExchangeBK);
-    await token.whiteListAddress(addBurnBucket);
-    await token.whiteListAddress(crowdsale.address);
-
-
-    await token.transfer(crowdsale.address,supplyCrowdSale);
-    await token.transfer(vault.address,supplyTeamToken);
-    await token.transfer(contractPreSale.address,supplyPreSale);
-    await token.transfer(addBurnBucket,supplyBurnBucket);
-    await token.transfer(addExchangeBK,supplyExchange);
-    
-
-    
-    return true;
+  //deploy presaleContract 
+  await deployer.deploy(MedPingPreSale,token.address,addVcsBucket,vault.address);
   
-}
+
+  return true;
+};
+
+
